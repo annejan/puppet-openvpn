@@ -472,7 +472,6 @@ class openvpn (
     }
   }
 
-
   ### Debugging, if enabled ( debug => true )
   if $openvpn::bool_debug == true {
     file { 'debug_openvpn':

@@ -1,36 +1,39 @@
 # File Managed by Puppet
 
-remote <%= @remote %> <%= @port %>
+remote <%= @remote %>
+port <%= @port %>
 proto <%= @real_proto %>
 dev <%= @dev %>
-<% if @route != '' %>route <%= @route %><% end -%>
-resolv-retry infinite
-nobind
 
 persist-key
 persist-tun
-<% if @auth_type == "key" -%>
+keepalive 10 60
+inactive 0
+
+
+<% if @real_auth_type == "key" -%>
 client
 secret <%= scope.lookupvar("openvpn::config_dir") %>/<%= @name %>.key 
 <% end -%>
-<% if @auth_type == "tls-client" -%>
+
+<% if @real_auth_type == "tls" -%>
 tls-client
-ca ca.crt
-cert <%= @hostname %>.crt
-key <%= @hostname %>.key
+ca <%= scope.lookupvar("openvpn::config_dir") %>/<%= "@#{server}-@#{instance}" %>/pki/ca.crt
+cert <%= scope.lookupvar("openvpn::config_dir") %>/<%= @#{server}-@#{instance} %>/pki/<%= scope.lookupvar("::fqdn") %>.crt
+key <%= scope.lookupvar("openvpn::config_dir") %>/<%= @#{server}-@#{instance} %>/pki/<%= scope.lookupvar("::fqdn") %>.key
 tls-client
 pull
 <% end -%>
 
+<% end -%>
+
 ns-cert-type server
-verb 3
-;mute 20
 user <%= scope.lookupvar("openvpn::process_user") %>
 group <%= scope.lookupvar("openvpn::process_user") %>
 
-keepalive 10 60
-inactive 0
-# cipher x
-# comp-lzo # Compress data
-# client-connect /etc/openvpn/script/client_connect
-# client-disconnect /etc/openvpn/script/client_disconnect
+resolv-retry infinite
+nobind
+
+<% @route.each do |route_entry| -%>
+route <%= route_entry %>
+<% end -%>

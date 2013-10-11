@@ -1,4 +1,4 @@
-# Define: openvpn::tunnel
+# Define: openvpn::instance
 #
 # Manages openvpn tunnels creating an openvpn .conf file
 #
@@ -47,11 +47,19 @@
 # [*enable*]
 #   If the tunnel is enabled or not.
 #
-# [*clients*]
-#   The clients to allow and their configuration
-#
 # [*client_definedtype*]
 #   The Defined Resource Type to invoke when configuring a client
+#
+# [*dh_source*]
+#   The path of the Dilfe Hellman file to use. Will generate if given ''.
+#
+# [*ca_source*]
+#   The path of the CA-file to use. Will be suffixed by '.crt' and '.key'
+#   Will generate if given '' 
+#
+# [*server_cert_source*]
+#   The path of the server cert and key to use. Will be suffixed by '.crt' and '.key'
+#   Wil generate if given ''
 #
 # [*easyrsa_country*]
 #   Option for easy-rsa to generate the certificate with
@@ -83,14 +91,11 @@
 #    dev              => 'tap',
 #    server           => '172.31.253.0 255.255.255.0',
 #    easyrsa_email    => 'devops@organization',
-#    clients => {
-#      'node42.fqdn' => { pushReset => true }
-#    }
 #  }
 #
 #
-define openvpn::tunnel (
-  $auth_type           = 'tls-server',
+define openvpn::instance (
+  $auth_type           = 'tls',
   $mode                = 'server',
   $remote              = '',
   $port                = $openvpn::port,
@@ -102,8 +107,10 @@ define openvpn::tunnel (
   $push                = '',
   $template            = '',
   $enable              = true,
-  $clients             = {},
   $client_definedtype  = $openvpn::client_definedtype,
+  $dh_source           = '',
+  $ca_source           = '',
+  $server_cert_source = '',
   $easyrsa_country     = $openvpn::easyrsa_country,
   $easyrsa_province    = $openvpn::easyrsa_province,
   $easyrsa_city        = $openvpn::easyrsa_city,
@@ -112,6 +119,7 @@ define openvpn::tunnel (
   $easyrsa_name        = $openvpn::easyrsa_name,
   $easyrsa_ou          = $openvpn::easyrsa_ou,
   $easyrsa_key_size    = $openvpn::easyrsa_key_size,
+  $exported_tag        = '',
 ) {
 
   include openvpn
@@ -129,6 +137,14 @@ define openvpn::tunnel (
       'server' => 'tcp-server',
       'client' => 'tcp-client',
     },
+  }
+  
+  $real_auth_type = $auth_type ? {
+    tls => $mode ? {
+      'server' => 'tls-server',
+      'client' => 'tls-client',
+    },
+    default => $auth_type
   }
 
   $real_template = $template ? {
@@ -215,24 +231,49 @@ define openvpn::tunnel (
         require => Exec["openvpn-tunnel-setup-easyrsa-${name}"]
       }
 
-      exec {
-        "openvpn-tunnel-setup-easyrsa-${name}":
-          command => "/bin/cp -r ${openvpn::easyrsa_dir} ${openvpn::config_dir}/${name}/easy-rsa && \
-                      chmod 755 ${openvpn::config_dir}/${name}/easy-rsa",
-          creates => "${openvpn::config_dir}/${name}/easy-rsa",
-          notify  => Service['openvpn'],
-          require => File["${openvpn::config_dir}/${name}"];
+      exec { "openvpn-tunnel-setup-easyrsa-${name}":
+        command => "/bin/cp -r ${openvpn::easyrsa_dir} ${openvpn::config_dir}/${name}/easy-rsa && \
+                    chmod 755 ${openvpn::config_dir}/${name}/easy-rsa",
+        creates => "${openvpn::config_dir}/${name}/easy-rsa",
+        notify  => Service['openvpn'],
+        require => File["${openvpn::config_dir}/${name}"]
+      }
 
-        "openvpn-tunnel-rsa-dh-${name}":
+      if $dh_source != '' {
+        exec { "openvpn-tunnel-rsa-dh-${name}":
+          command  => "ln -s ${dh_source} ${openvpn::config_dir}/${name}/easy-rsa/keys/dh${easyrsa_key_size}.pem",
+          creates  => "${openvpn::config_dir}/${name}/easy-rsa/keys/dh${easyrsa_key_size}.pem",
+          provider => 'shell',
+          notify   => Service['openvpn'],
+          require  => File["${openvpn::config_dir}/${name}/easy-rsa/vars"]
+        }
+      } else { 
+        exec { "openvpn-tunnel-rsa-dh-${name}":
           command  => '. ./vars && ./clean-all && RANDFILE=.rnd ./build-dh',
           cwd      => "${openvpn::config_dir}/${name}/easy-rsa",
           creates  => "${openvpn::config_dir}/${name}/easy-rsa/keys/dh${easyrsa_key_size}.pem",
           provider => 'shell',
           timeout  => 0,
           notify   => Service['openvpn'],
-          require  => File["${openvpn::config_dir}/${name}/easy-rsa/vars"];
+          require  => File["${openvpn::config_dir}/${name}/easy-rsa/vars"]
+        }
+      }
 
-        "openvpn-tunnel-rsa-ca-${name}":
+      if $ca_source != '' {
+        exec { "openvpn-tunnel-rsa-ca-${name}":
+          command  => "ln -s ${ca_source}.key ${openvpn::config_dir}/${name}/easy-rsa/keys/ca.key &&
+                       ln -s ${ca_source}.crt ${openvpn::config_dir}/${name}/easy-rsa/keys/ca.crt",
+          cwd      => "${openvpn::config_dir}/${name}/easy-rsa",
+          creates  => [ "${openvpn::config_dir}/${name}/easy-rsa/keys/ca.key", 
+                        "${openvpn::config_dir}/${name}/easy-rsa/keys/ca.crt" ],
+          provider => 'shell',
+          timeout  => 0,
+          notify   => Service['openvpn'],
+          require  => [ Exec["openvpn-tunnel-rsa-dh-${name}"],
+                        File["${openvpn::config_dir}/${name}/easy-rsa/openssl.cnf"] ]
+        }
+      } else {
+        exec { "openvpn-tunnel-rsa-ca-${name}":
           command  => '. ./vars && ./pkitool --initca',
           cwd      => "${openvpn::config_dir}/${name}/easy-rsa",
           creates  => [ "${openvpn::config_dir}/${name}/easy-rsa/keys/ca.key", 
@@ -241,9 +282,23 @@ define openvpn::tunnel (
           timeout  => 0,
           notify   => Service['openvpn'],
           require  => [ Exec["openvpn-tunnel-rsa-dh-${name}"],
-                        File["${openvpn::config_dir}/${name}/easy-rsa/openssl.cnf"] ];
-
-        "openvpn-tunnel-rsa-servercrt-${name}":
+                        File["${openvpn::config_dir}/${name}/easy-rsa/openssl.cnf"] ]
+        }
+      }
+      
+      if $server_cert_source != '' {
+        exec { "openvpn-tunnel-rsa-servercrt-${name}":
+          command  => "ln -s ${server_cert_source}.key ${openvpn::config_dir}/${name}/easy-rsa/keys/${::fqdn}.key &&
+                       ln -s ${server_cert_source}.key ${openvpn::config_dir}/${name}/easy-rsa/keys/${::fqdn}.crt",
+          cwd      => "${openvpn::config_dir}/${name}/easy-rsa",
+          creates  => [ "${openvpn::config_dir}/${name}/easy-rsa/keys/${::fqdn}.key",
+                        "${openvpn::config_dir}/${name}/easy-rsa/keys/${::fqdn}.crt" ],
+          provider => 'shell',
+          notify   => Service['openvpn'],
+          require  => Exec["openvpn-tunnel-rsa-ca-${name}"];
+        }
+      } else {
+        exec { "openvpn-tunnel-rsa-servercrt-${name}":
           command  => ". ./vars && ./pkitool --server ${::fqdn}",
           cwd      => "${openvpn::config_dir}/${name}/easy-rsa",
           creates  => [ "${openvpn::config_dir}/${name}/easy-rsa/keys/${::fqdn}.key",
@@ -251,6 +306,7 @@ define openvpn::tunnel (
           provider => 'shell',
           notify   => Service['openvpn'],
           require  => Exec["openvpn-tunnel-rsa-ca-${name}"];
+        }
       }
 
       file { "${openvpn::config_dir}/${name}/keys":
@@ -260,20 +316,21 @@ define openvpn::tunnel (
       }
 
     }
-
-    # The each is required to allow one CN to be used
-    # with multiple tunnels.
-    each($clients) |$commonname, $params| {
-      create_resources(
-        $client_definedtype,
-        { "${name}-${commonname}" => $params },
-        { cn  => $commonname, tunnelName => $name }
-      )
-
+    
+    Openvpn::Client::Exported <<| server == $::fqdn |>> 
+    
+    @@openvpn::client::config { $name:
+      server => $::fqdn,
+      instance  => $name, 
+      port      => $port,
+      proto     => $proto,
+      dev       => $dev,
+      auth_type => $auth_type,
+      route     => $route,
     }
   }
 
-# Automatic monitoring of port and service
+  # Automatic monitoring of port and service
   if $openvpn::bool_monitor == true {
 
     $target = $remote ? {
