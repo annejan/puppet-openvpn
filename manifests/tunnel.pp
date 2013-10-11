@@ -304,14 +304,27 @@ define openvpn::tunnel (
 
 # Automatic Firewalling
   if $openvpn::bool_firewall == true {
-    firewall { "openvpn_${name}_${proto}_${port}":
-      source      => $openvpn::firewall_src,
-      destination => $openvpn::firewall_dst,
-      protocol    => $proto,
-      port        => $port,
-      action      => 'allow',
-      direction   => 'input',
-      enable      => $bool_enable,
+    if $mode == 'server' {
+      firewall { "openvpn_${name}_${proto}_${port}":
+        source      => $openvpn::firewall_src,
+        destination => $openvpn::firewall_dst,
+        protocol    => $proto,
+        port        => $port,
+        action      => 'allow',
+        direction   => 'input',
+        enable      => $bool_enable,
+      }
+    } else {
+      firewall { "openvpn_${name}_${proto}_${port}":
+        source      => $openvpn::firewall_src,
+#        destination => $openvpn::firewall_dst, 
+        destination => iptables_nslookup($remote, 'A'),
+        protocol    => $proto,
+        port        => $port,
+        action      => 'allow',
+        direction   => 'output',
+        enable      => $bool_enable,
+      }
     }
   }
 
