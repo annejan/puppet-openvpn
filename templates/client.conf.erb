@@ -3,8 +3,11 @@
 remote <%= @remote %> <%= @port %>
 proto <%= @real_proto %>
 dev <%= @dev %>
-<% if @route != '' %>route <%= @route %><% end -%>
-resolv-retry infinite
+
+<% @route.each do |route_entry| -%>
+route <%= route_entry %>
+<% end -%>resolv-retry infinite
+
 nobind
 
 persist-key
@@ -15,9 +18,9 @@ secret <%= scope.lookupvar("openvpn::config_dir") %>/<%= @name %>.key
 <% end -%>
 <% if @auth_type == "tls-client" -%>
 tls-client
-ca ca.crt
-cert <%= @hostname %>.crt
-key <%= @hostname %>.key
+ca <%= scope.lookupvar("openvpn::config_dir") %>/<%= @name %>/keys/ca.crt
+cert <%= scope.lookupvar("openvpn::config_dir") %>/<%= @name %>/keys/<%= scope.lookupvar("::fqdn") %>.crt
+key <%= scope.lookupvar("openvpn::config_dir") %>/<%= @name %>/keys/<%= scope.lookupvar("::fqdn") %>.key
 tls-client
 pull
 <% end -%>
