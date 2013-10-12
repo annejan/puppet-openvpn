@@ -319,7 +319,7 @@ define openvpn::tunnel (
         protocol        => $proto,
         port            => $port,
         action          => 'allow',
-        direction       => 'output',
+        direction       => 'input',
         enable          => $bool_enable,
         enable_v4       => $enable_v4,
         enable_v6       => $enable_v6,
