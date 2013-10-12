@@ -102,6 +102,12 @@ define openvpn::tunnel (
   $push                = [],
   $template            = '',
   $enable              = true,
+  $firewall_dst        = $openvpn::firewall_dst,
+  $firewall_dst_v6     = $openvpn::firewall_dst_v6,
+  $firewall_src        = $openvpn::firewall_src,
+  $firewall_src_v6     = $openvpn::firewall_src_v6,
+  $enable_v4           = $openvpn::enable_v4,
+  $enable_v6           = $openvpn::enable_v6,
   $clients             = {},
   $client_definedtype  = $openvpn::client_definedtype,
   $easyrsa_country     = $openvpn::easyrsa_country,
@@ -305,25 +311,34 @@ define openvpn::tunnel (
 # Automatic Firewalling
   if $openvpn::bool_firewall == true {
     if $mode == 'server' {
-      firewall { "openvpn_${name}_${proto}_${port}":
-        source      => $openvpn::firewall_src,
-        destination => $openvpn::firewall_dst,
-        protocol    => $proto,
-        port        => $port,
-        action      => 'allow',
-        direction   => 'input',
-        enable      => $bool_enable,
+      firewall::rule { "openvpn_${name}_${proto}_${port}":
+        destination     => $firewall_dst,
+        destination_v6  => $firewall_dst_v6,
+        source          => $firewall_src,
+        source_v6       => $firewall_src_v6,
+        protocol        => $proto,
+        port            => $port,
+        action          => 'allow',
+        direction       => 'output',
+        enable          => $bool_enable,
+        enable_v4       => $enable_v4,
+        enable_v6       => $enable_v6,
       }
     } else {
-      firewall { "openvpn_${name}_${proto}_${port}":
-        source      => $openvpn::firewall_src,
-#        destination => $openvpn::firewall_dst, 
-        destination => iptables_nslookup($remote, 'A'),
-        protocol    => $proto,
-        port        => $port,
-        action      => 'allow',
-        direction   => 'output',
-        enable      => $bool_enable,
+      $dns_info = firewall_dns_info($remote)
+
+      firewall::rule { "openvpn_${name}_${proto}_${port}":
+        destination     => $dns_info['ip_v4'], # unless $firewall_dst,
+        destination_v6  => $dns_info['ip_v6'], # unless $firewall_dst_v6,
+        source          => $firewall_src,
+        source_v6       => $firewall_src_v6,
+        protocol        => $proto,
+        port            => $port,
+        action          => 'allow',
+        direction       => 'output',
+        enable          => $bool_enable,
+        enable_v4       => $enable_v4 and $dns_info['enable_v4'],
+        enable_v6       => $enable_v6 and $dns_info['enable_v6'],
       }
     }
   }

@@ -1,11 +1,11 @@
 define openvpn::client (
   $cn,
   $tunnelName,
-  $push         = '',
-  $pushReset    = false,
-  $iroute       = '',
-  $ifconfigPush = '',
-  $config       = ''
+  $push          = '',
+  $push_reset    = false,
+  $iroute        = '',
+  $ifconfig_push = '',
+  $config        = ''
 ) {
 
   file { "${openvpn::config_dir}/${tunnelName}/ccd/${cn}":
