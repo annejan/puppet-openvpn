@@ -16,7 +16,7 @@ iroute "<%= iroute_entry %>"
 
 <% if @ifconfigPush != "" -%>
 <% @ifconfig_push.each do |ifconfigPush_entry| -%>
-ifconfig-push "<%= ifconfigPush_entry %>"
+ifconfig-push <%= ifconfigPush_entry %>
 <% end -%>
 <% end -%>
 
@@ -24,3 +24,4 @@ ifconfig-push "<%= ifconfigPush_entry %>"
 <% if @config != "" -%>
 config "<%= config %>"
 <% end -%>
+Inactivity timeout (--ping-restart), restarting
