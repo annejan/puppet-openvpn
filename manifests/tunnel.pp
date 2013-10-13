@@ -97,6 +97,12 @@ define openvpn::tunnel (
   $auth_key            = '',
   $proto               = $openvpn::protocol,
   $dev                 = 'tun',
+  
+  # Build a tun link capable of forwarding IPv6 traffic.
+  # Should be used in conjunction with --dev tun or --dev tunX.
+  # Can also be used with Tap interfaces though.
+  $tun_v6              = $openvpn::enable_v6,
+
   $server              = '',
   $server_v6           = '',
   $ifconfig_v6         = '',
@@ -125,6 +131,7 @@ define openvpn::tunnel (
   include openvpn
 
   $bool_enable=any2bool($enable)
+  $bool_tun_v6=any2bool($tun_v6)
 
   $manage_file = $bool_enable ? {
     true    => 'present',
