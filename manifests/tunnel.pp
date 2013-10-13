@@ -99,6 +99,7 @@ define openvpn::tunnel (
   $dev                 = 'tun',
   $server              = '',
   $server_v6           = '',
+  $ifconfig_v6         = '',
   $route               = [],
   $push                = [],
   $template            = '',
