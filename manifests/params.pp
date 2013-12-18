@@ -97,8 +97,14 @@ class openvpn::params {
   $client_definedtype = 'openvpn::client'
   
   # Easy-rsa
-  $easyrsa_package      = 'easy-rsa'
-  $easyrsa_dir          = '/usr/share/easy-rsa'
+  $easyrsa_package  = $::operatingsystem ? {
+    'Debian' => '', # On Debian it's in Package[openvpn]
+    default  => 'easy-rsa'
+  }
+  $easyrsa_dir = $::operatingsystem ? {
+    'Debian' => '/usr/share/doc/openvpn/examples/easy-rsa/2.0/',
+    default  => '/usr/share/easy-rsa'
+  }
   $easyrsa_country      = 'EU'
   $easyrsa_province     = 'Puppet'
   $easyrsa_city         = 'Example42'

@@ -212,7 +212,9 @@ define openvpn::tunnel (
 
     if $auth_type == "tls-server" {
 
-      if ! defined(Package[$openvpn::easyrsa_package]) {
+      if ! defined(Package[$openvpn::easyrsa_package])
+        and $openvpn::easyrsa_package != ''
+      {
         package { $openvpn::easyrsa_package:
           ensure => installed
         }
