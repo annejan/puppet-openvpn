@@ -1,6 +1,5 @@
 # File Managed by Puppet
 
-mode server
 port <%= @port %>
 proto <%= @real_proto %>
 dev <%= @dev %>
@@ -13,21 +12,27 @@ route <%= route_entry %>
 push "<%= push_entry %>"
 <% end -%>
 
-<% if @server != '' %>server <%= @server %><% end -%> 
+<% if @server != '' %>server <%= @server %><% end -%>
+<% if @server_v6 != '' %>server-ipv6 <%= @server_v6 %><% end -%>
+<% if @ifconfig_v6 != '' %>ifconfig-ipv6 <%= @ifconfig_v6 %><% end -%>
+<% if @bool_tun_v6 %>tun-ipv6 <% end -%>
 
 <% if @auth_type == "key" -%>
-secret <%= scope.lookupvar("openvpn::config_dir") %>/<%= @name %>.key 
+secret <%= scope.lookupvar("openvpn::config_dir") %>/<%= @name %>.key
 <% end -%>
 <% if @auth_type == "tls-server" -%>
+mode server
 tls-server
 ca <%= scope.lookupvar("openvpn::config_dir") %>/<%= @name %>/keys/ca.crt
-cert <%= scope.lookupvar("openvpn::config_dir") %>/<%= @name %>/keys/server.crt
-key <%= scope.lookupvar("openvpn::config_dir") %>/<%= @name %>/keys/server.crt
+cert <%= scope.lookupvar("openvpn::config_dir") %>/<%= @name %>/keys/<%= scope.lookupvar("::fqdn") %>.crt
+key <%= scope.lookupvar("openvpn::config_dir") %>/<%= @name %>/keys/<%= scope.lookupvar("::fqdn") %>.key
 dh <%= scope.lookupvar("openvpn::config_dir") %>/<%= @name %>/keys/dh<%= @easyrsa_key_size %>.pem
-<% end -%>
 
 client-config-dir <%= scope.lookupvar("openvpn::config_dir") %>/<%= @name %>/ccd
 ccd-exclusive
+
+client-to-client
+<% end -%>
 
 keepalive 10 60
 inactive 0
@@ -37,6 +42,4 @@ persist-tun
 persist-key
 verb 4 # From 0 to 15 (max)
 comp-lzo # Compress data
-
-# client-connect /etc/openvpn/script/client_connect
-# client-disconnect /etc/openvpn/script/client_disconnect
+push "comp-lzo yes"
